@@ -4,11 +4,15 @@ on:
   push:
     tags:
       - "*.*"
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
     if: github.event_name == 'push'
+    strategy:
+      matrix:
+        type: [cpu, cuda]
 
     steps:
       - name: Check Out Repo
@@ -18,6 +22,7 @@ jobs:
         run: |
           echo "RELEASE_VERSION=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
           echo "REPO=${{ secrets.DOCKER_USERNAME }}/${{ github.event.repository.name }}" >> $GITHUB_ENV
+          echo "TYPE=${{ matrix.type }}" >> $GITHUB_ENV
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v1
@@ -37,10 +42,10 @@ jobs:
         uses: docker/build-push-action@v2
         with:
           context: ./
-          file: ./Dockerfile
+          file: ./Dockerfile.${{ matrix.type }}
           platforms: linux/arm/v7,linux/arm64,linux/amd64
           push: true
-          tags: ${{ env.REPO }}:${{ env.RELEASE_VERSION }}, ${{ env.REPO }}:latest
+          tags: ${{ env.REPO }}-${{ matrix.type }}:${{ env.RELEASE_VERSION }},${{ env.REPO }}-${{ matrix.type }}:latest
 
       - name: Image digest
         run: echo ${{ steps.build.outputs.digest }}
